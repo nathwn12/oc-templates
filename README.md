@@ -38,3 +38,8 @@ npm run mcp
 ```
 
 Tools served: `echo` (returns the supplied `text` unchanged).
+
+## Links
+
+- [Releases](https://github.com/nathwn12/oc-templates/releases)
+- [MIT](LICENSE)
