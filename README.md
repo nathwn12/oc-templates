@@ -52,6 +52,13 @@ Tools served: `echo` (returns the supplied `text` unchanged).
 
 The bundled server implements the MCP handshake revisions up to `2025-11-25`; supporting `2026-07-28` requires the v2 MCP SDK packages.
 
+## Status
+
+Experimental and still moving. It works today, but it is not a finished
+product: interfaces may change, features may be improved or removed, and a
+release can break the one before it. This is maintained by one person, not a
+team. If it breaks, open an issue with the command you ran and what you saw.
+
 ## Links
 
 - [Releases](https://github.com/nathwn12/oc-templates/releases)
