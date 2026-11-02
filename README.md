@@ -14,22 +14,33 @@ npm run build
 
 ### As a plugin
 
-Add this package to your project, then reference it from your OpenCode config so its `template-status` command and `execute.before` hook load at startup.
+Add this package to your project, then list it in `plugins` in `opencode.json(c)` so its `template-status` command and `execute.before` hook load at startup:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["oc-template"]
+}
+```
 
 ### As a local MCP server
 
-Build once (`npm run build`), then wire the stdio entry into your OpenCode MCP config:
+Build once (`npm run build`), then wire the stdio entry into your OpenCode MCP config under `mcp.servers`:
 
 ```jsonc
 {
   "mcp": {
-    "oc-template": {
-      "type": "local",
-      "command": ["node", "dist/mcp.js"]
+    "servers": {
+      "oc-template": {
+        "type": "local",
+        "command": ["node", "dist/mcp.js"]
+      }
     }
   }
 }
 ```
+
+`type` is required and `command` is an array of arguments.
 
 Run it directly to check stdio output:
 
@@ -38,6 +49,8 @@ npm run mcp
 ```
 
 Tools served: `echo` (returns the supplied `text` unchanged).
+
+The bundled server implements the MCP handshake revisions up to `2025-11-25`; supporting `2026-07-28` requires the v2 MCP SDK packages.
 
 ## Links
 

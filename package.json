@@ -42,12 +42,11 @@
     "check": "npm run build && npm test",
     "prepublishOnly": "npm run check"
   },
-  "peerDependencies": {
-    "@opencode/plugin": "^2.2.3"
+  "dependencies": {
+    "@opencode/plugin": "^2.2.5"
   },
   "devDependencies": {
-    "@opencode/plugin": "^2.2.3",
-    "@types/node": "^22.20.5",
-    "typescript": "^5.8.2"
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
   }
 }

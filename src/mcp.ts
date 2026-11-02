@@ -1,8 +1,10 @@
 /**
  * Minimal MCP server over stdio (newline-delimited JSON-RPC 2.0, no dependencies).
  *
- * Wire it into opencode with an MCP entry of type "local", e.g.
- *   { "mcp": { "oc-template": { "type": "local", "command": ["node", "dist/mcp.js"] } } }
+ * Wire it into opencode under the V2 `mcp.servers` map, e.g.
+ *   { "mcp": { "servers": { "oc-template": { "type": "local", "command": ["node", "dist/mcp.js"] } } } }
+ *
+ * `type` is required in V2 and the command is an array, never a string.
  *
  * `respond` is exported so the protocol can be driven in a test without a pipe.
  */
@@ -12,7 +14,7 @@ import type { Readable, Writable } from "node:stream"
 
 export const SERVER_NAME = "oc-template"
 export const SERVER_VERSION = "0.1.0"
-export const PROTOCOL_VERSION = "2025-06-18"
+export const PROTOCOL_VERSION = "2025-11-25"
 
 export type RpcId = string | number | null
 

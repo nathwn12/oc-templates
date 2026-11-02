@@ -3,17 +3,17 @@ import assert from "node:assert/strict";
 import { respond } from "../dist/mcp.js";
 
 describe("mcp smoke", () => {
-  it("answers initialize", () => {
+  it("answers initialize with the current default protocol", () => {
     const reply = respond({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
-      params: { protocolVersion: "2025-06-18" },
     });
     assert.equal(reply?.jsonrpc, "2.0");
     assert.equal(reply?.id, 1);
     assert.ok("result" in (reply ?? {}));
     const result = reply.result;
+    assert.equal(result.protocolVersion, "2025-11-25");
     assert.equal(result.serverInfo.name, "oc-template");
   });
 
@@ -37,5 +37,15 @@ describe("mcp smoke", () => {
       id: 3,
       result: { content: [{ type: "text", text: "hello" }], isError: false },
     });
+  });
+
+  it("echoes a client-requested 2026-07-28 instead of downgrading it", () => {
+    const reply = respond({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "initialize",
+      params: { protocolVersion: "2026-07-28" },
+    });
+    assert.equal(reply?.result.protocolVersion, "2026-07-28");
   });
 });
