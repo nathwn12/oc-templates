@@ -1,20 +1,57 @@
+#!/usr/bin/env node
 /**
- * Minimal MCP server over stdio (newline-delimited JSON-RPC 2.0, no dependencies).
+ * Minimal MCP server over stdio: newline-delimited JSON-RPC 2.0, no dependencies.
  *
- * Wire it into opencode under the V2 `mcp.servers` map, e.g.
- *   { "mcp": { "servers": { "oc-template": { "type": "local", "command": ["node", "dist/mcp.js"] } } } }
+ * It speaks both protocol eras the specification defines:
  *
- * `type` is required in V2 and the command is an array, never a string.
+ * - **legacy** (`2025-11-25` and earlier): a client opens with the `initialize`
+ *   handshake. The reply must carry a version the server implements, so a
+ *   requested version this server does not serve is answered with the one it does.
+ * - **modern** (`2026-07-28`): every request declares its version in
+ *   `_meta["io.modelcontextprotocol/protocolVersion"]`. An unsupported version is
+ *   refused with `-32022` (`UnsupportedProtocolVersionError`) carrying the
+ *   supported list, and `server/discover` reports versions and capabilities up
+ *   front.
  *
- * `respond` is exported so the protocol can be driven in a test without a pipe.
+ * Wire it into opencode under the V2 `mcp.servers` map; `type` is required and
+ * `command` is an array, never a string:
+ *   { "mcp": { "servers": { "<name>": { "type": "local", "command": ["<name>-mcp"] } } } }
+ *
+ * `respond` and `serve` are exported so the protocol can be driven in a test
+ * without a pipe.
  */
 import { createInterface } from "node:readline"
 import { pathToFileURL } from "node:url"
 import type { Readable, Writable } from "node:stream"
 
-export const SERVER_NAME = "oc-template"
-export const SERVER_VERSION = "0.1.0"
-export const PROTOCOL_VERSION = "2025-11-25"
+import { NAME, VERSION } from "./identity.js"
+
+export const SERVER_NAME = NAME
+export const SERVER_VERSION = VERSION
+
+/** Current revision: per-request `_meta`, `server/discover`, no handshake. */
+export const MODERN_PROTOCOL_VERSION = "2026-07-28"
+
+/** Last handshake revision, and the one this server implements. */
+export const LEGACY_PROTOCOL_VERSION = "2025-11-25"
+
+/** Every revision this server answers, newest first. */
+export const SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [
+  MODERN_PROTOCOL_VERSION,
+  LEGACY_PROTOCOL_VERSION,
+]
+
+/** Handshake revisions served by `initialize`. A client that asks for another one
+ * is answered with the newest entry instead of having its request echoed back. */
+const HANDSHAKE_PROTOCOL_VERSIONS: readonly string[] = [LEGACY_PROTOCOL_VERSION]
+
+export const PROTOCOL_VERSION_KEY = "io.modelcontextprotocol/protocolVersion"
+export const SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo"
+
+/** `UnsupportedProtocolVersionError`, reserved for the specification. */
+export const UNSUPPORTED_PROTOCOL_VERSION = -32022
+
+const CAPABILITIES = { tools: { listChanged: false } } as const
 
 export type RpcId = string | number | null
 
@@ -34,14 +71,14 @@ export interface RpcSuccess {
 export interface RpcFailure {
   jsonrpc: "2.0"
   id: RpcId
-  error: { code: number; message: string }
+  error: { code: number; message: string; data?: unknown }
 }
 
 /** Capability catalogue served by `tools/list`. */
 export const TOOLS = [
   {
     name: "echo",
-    description: "Return the supplied text unchanged (oc-template example tool).",
+    description: `Return the supplied text unchanged (${NAME} example tool).`,
     inputSchema: {
       type: "object",
       properties: { text: { type: "string", description: "Text to echo back." } },
@@ -51,12 +88,70 @@ export const TOOLS = [
   },
 ] as const
 
+type Json = Record<string, unknown>
+
+type Outcome =
+  | { kind: "result"; result: Json }
+  | { kind: "error"; code: number; message: string; data?: unknown }
+
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
 }
 
+function serverInfo() {
+  return { name: SERVER_NAME, version: SERVER_VERSION }
+}
+
 function text(value: string, isError = false) {
   return { content: [{ type: "text", text: value }], isError }
+}
+
+/** The per-request version a modern client declares, or `undefined` for a legacy one. */
+function requestedVersion(params: Record<string, unknown>): string | undefined {
+  const version = asRecord(params["_meta"])[PROTOCOL_VERSION_KEY]
+  return typeof version === "string" ? version : undefined
+}
+
+function dispatch(message: RpcMessage, params: Record<string, unknown>, modern: boolean): Outcome {
+  switch (message.method) {
+    case "server/discover": {
+      if (!modern) {
+        return { kind: "error", code: -32601, message: "method not found: server/discover" }
+      }
+      return {
+        kind: "result",
+        result: { supportedVersions: [...SUPPORTED_PROTOCOL_VERSIONS], capabilities: CAPABILITIES },
+      }
+    }
+    case "ping":
+      return { kind: "result", result: {} }
+    case "tools/list":
+      return { kind: "result", result: { tools: TOOLS } }
+    case "tools/call": {
+      if (params["name"] !== "echo") {
+        return {
+          kind: "error",
+          code: -32602,
+          message: `unknown tool: ${String(params["name"])}`,
+        }
+      }
+      const value = asRecord(params["arguments"])["text"]
+      if (typeof value !== "string") {
+        return {
+          kind: "error",
+          code: -32602,
+          message: "echo requires a string `text` argument",
+        }
+      }
+      return { kind: "result", result: text(value) }
+    }
+    default:
+      return {
+        kind: "error",
+        code: -32601,
+        message: `method not found: ${String(message.method)}`,
+      }
+  }
 }
 
 /**
@@ -66,51 +161,52 @@ function text(value: string, isError = false) {
 export function respond(message: RpcMessage): RpcSuccess | RpcFailure | null {
   if (message.id === undefined) return null
   const id = message.id
+  const params = asRecord(message.params)
 
-  switch (message.method) {
-    case "initialize": {
-      const params = asRecord(message.params)
-      const requested = params["protocolVersion"]
-      return {
-        jsonrpc: "2.0",
-        id,
-        result: {
-          protocolVersion: typeof requested === "string" ? requested : PROTOCOL_VERSION,
-          capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
-        },
-      }
+  if (message.method === "initialize") {
+    const requested = params["protocolVersion"]
+    const negotiated =
+      HANDSHAKE_PROTOCOL_VERSIONS.find((version) => version === requested) ??
+      LEGACY_PROTOCOL_VERSION
+    return {
+      jsonrpc: "2.0",
+      id,
+      result: { protocolVersion: negotiated, capabilities: CAPABILITIES, serverInfo: serverInfo() },
     }
-    case "ping":
-      return { jsonrpc: "2.0", id, result: {} }
-    case "tools/list":
-      return { jsonrpc: "2.0", id, result: { tools: TOOLS } }
-    case "tools/call": {
-      const params = asRecord(message.params)
-      if (params["name"] !== "echo") {
-        return {
-          jsonrpc: "2.0",
-          id,
-          error: { code: -32602, message: `unknown tool: ${String(params["name"])}` },
-        }
-      }
-      const args = asRecord(params["arguments"])
-      const value = args["text"]
-      if (typeof value !== "string") {
-        return {
-          jsonrpc: "2.0",
-          id,
-          error: { code: -32602, message: "echo requires a string `text` argument" },
-        }
-      }
-      return { jsonrpc: "2.0", id, result: text(value) }
+  }
+
+  const requested = requestedVersion(params)
+  const modern = requested !== undefined
+  if (requested !== undefined && !SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) {
+    return {
+      jsonrpc: "2.0",
+      id,
+      error: {
+        code: UNSUPPORTED_PROTOCOL_VERSION,
+        message: "Unsupported protocol version",
+        data: { supported: [...SUPPORTED_PROTOCOL_VERSIONS], requested },
+      },
     }
-    default:
-      return {
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32601, message: `method not found: ${String(message.method)}` },
-      }
+  }
+
+  const outcome = dispatch(message, params, modern)
+  if (outcome.kind === "error") {
+    return {
+      jsonrpc: "2.0",
+      id,
+      error:
+        outcome.data === undefined
+          ? { code: outcome.code, message: outcome.message }
+          : { code: outcome.code, message: outcome.message, data: outcome.data },
+    }
+  }
+
+  return {
+    jsonrpc: "2.0",
+    id,
+    result: modern
+      ? { resultType: "complete", ...outcome.result, _meta: { [SERVER_INFO_KEY]: serverInfo() } }
+      : outcome.result,
   }
 }
 

@@ -7,11 +7,13 @@
  */
 import { Plugin } from "@opencode/plugin"
 
-export const PLUGIN_ID = "oc-template"
-export const PLUGIN_VERSION = "0.1.0"
+import { COMMAND_NAME, NAME, STORAGE_PREFIX, VERSION } from "./identity.js"
 
-const LAST_TOOL_KEY = "oc-template:last-tool"
-const LAST_COMMAND_KEY = "oc-template:last-command"
+export const PLUGIN_ID = NAME
+export const PLUGIN_VERSION = VERSION
+
+const LAST_TOOL_KEY = `${STORAGE_PREFIX}last-tool`
+const LAST_COMMAND_KEY = `${STORAGE_PREFIX}last-command`
 
 /**
  * Example 1: register a slash command.
@@ -20,8 +22,8 @@ const LAST_COMMAND_KEY = "oc-template:last-command"
 async function registerStatusCommand(context: Plugin.Context): Promise<Plugin.Cleanup> {
   const registration = await context.command.transform((editor) => {
     editor.add({
-      name: "template-status",
-      description: "Stamp the current time into plugin storage (oc-template example).",
+      name: COMMAND_NAME,
+      description: `Stamp the current time into plugin storage (${NAME} example).`,
       async execute() {
         await context.storage.set(LAST_COMMAND_KEY, new Date().toISOString())
       },

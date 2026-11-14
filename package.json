@@ -10,12 +10,23 @@
   ],
   "license": "MIT",
   "author": "nathwn12",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nathwn12/oc-templates.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nathwn12/oc-templates/issues"
+  },
+  "homepage": "https://github.com/nathwn12/oc-templates#readme",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "main": "./dist/plugin.js",
   "types": "./dist/plugin.d.ts",
+  "bin": {
+    "oc-template-mcp": "./dist/mcp.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/plugin.d.ts",
@@ -30,6 +41,8 @@
   },
   "files": [
     "dist",
+    "src",
+    "assets",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -37,9 +50,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "pretest": "npm run build",
     "test": "node --test test/*.test.mjs",
     "mcp": "node dist/mcp.js",
-    "check": "npm run build && npm test",
+    "check": "npm test",
     "prepublishOnly": "npm run check"
   },
   "dependencies": {
