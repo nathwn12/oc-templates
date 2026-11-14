@@ -51,6 +51,9 @@ export const SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo"
 /** `UnsupportedProtocolVersionError`, reserved for the specification. */
 export const UNSUPPORTED_PROTOCOL_VERSION = -32022
 
+/** `Invalid Request`: the message is not a well-formed JSON-RPC 2.0 request. */
+export const INVALID_REQUEST = -32600
+
 const CAPABILITIES = { tools: { listChanged: false } } as const
 
 export type RpcId = string | number | null
@@ -96,6 +99,15 @@ type Outcome =
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
+}
+
+/** A JSON-RPC message is an object; arrays and primitives are invalid requests. */
+function isMessage(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function invalidRequest(): RpcFailure {
+  return { jsonrpc: "2.0", id: null, error: { code: INVALID_REQUEST, message: "invalid request" } }
 }
 
 function serverInfo() {
@@ -156,14 +168,25 @@ function dispatch(message: RpcMessage, params: Record<string, unknown>, modern: 
 
 /**
  * Map one inbound message to its reply. Returns `null` for notifications
- * (no `id`), which the protocol requires to go unanswered.
+ * (no `id`), which the protocol requires to go unanswered, and an `-32600`
+ * Invalid Request for anything that is not a well-formed JSON-RPC 2.0 request.
  */
-export function respond(message: RpcMessage): RpcSuccess | RpcFailure | null {
-  if (message.id === undefined) return null
-  const id = message.id
-  const params = asRecord(message.params)
+export function respond(message: unknown): RpcSuccess | RpcFailure | null {
+  if (!isMessage(message)) return invalidRequest()
+  if (message["id"] === undefined) return null
+  if (
+    message["jsonrpc"] !== "2.0" ||
+    typeof message["method"] !== "string" ||
+    (typeof message["id"] !== "string" && typeof message["id"] !== "number")
+  ) {
+    return invalidRequest()
+  }
 
-  if (message.method === "initialize") {
+  const request = message as unknown as RpcMessage
+  const id = request.id as RpcId
+  const params = asRecord(request.params)
+
+  if (request.method === "initialize") {
     const requested = params["protocolVersion"]
     const negotiated =
       HANDSHAKE_PROTOCOL_VERSIONS.find((version) => version === requested) ??
@@ -189,7 +212,7 @@ export function respond(message: RpcMessage): RpcSuccess | RpcFailure | null {
     }
   }
 
-  const outcome = dispatch(message, params, modern)
+  const outcome = dispatch(request, params, modern)
   if (outcome.kind === "error") {
     return {
       jsonrpc: "2.0",
@@ -217,9 +240,9 @@ export function serve(input: Readable, output: Writable): void {
     const trimmed = line.trim()
     if (trimmed === "") return
 
-    let message: RpcMessage
+    let message: unknown
     try {
-      message = JSON.parse(trimmed) as RpcMessage
+      message = JSON.parse(trimmed)
     } catch {
       output.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } })}\n`)
       return

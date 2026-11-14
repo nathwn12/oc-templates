@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `test/smoke.test.mjs`, replaced by the two suites above.
 - The exported `PROTOCOL_VERSION` constant, replaced by `LEGACY_PROTOCOL_VERSION`, `MODERN_PROTOCOL_VERSION` and `SUPPORTED_PROTOCOL_VERSIONS`.
 
+### Fixed
+
+- A frame that is not a well-formed JSON-RPC 2.0 request — `null`, a primitive, an array, a wrong `jsonrpc` value, a missing or non-string `method`, a `null` id — is answered with `-32600` Invalid Request and `id: null`. The server previously threw on the first such frame and exited, taking every later request with it.
+- `npm pack` builds first (`prepack`), so the tarball carries `dist/`. Packing a clean clone used to produce a package whose `main`, `bin` and `exports` pointed at files that were not in it.
+- The suite derives the example command name from `identity.ts` instead of pinning it, so renaming `COMMAND_NAME` no longer fails two tests.
+
 ## [0.1.0] - 2026-10-30
 
 ### Added

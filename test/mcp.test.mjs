@@ -2,6 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import { once } from "node:events";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import {
   LEGACY_PROTOCOL_VERSION,
   MODERN_PROTOCOL_VERSION,
@@ -13,6 +15,8 @@ import {
   respond,
   serve,
 } from "../dist/mcp.js";
+
+const SERVER_ENTRY = fileURLToPath(new URL("../dist/mcp.js", import.meta.url));
 
 const MODERN = {
   "_meta": {
@@ -185,5 +189,61 @@ describe("transport framing", () => {
     assert.equal(replies.length, 1);
     assert.equal(replies[0].error.code, -32700);
     assert.equal(replies[0].id, null);
+  });
+});
+
+describe("invalid requests", () => {
+  it("refuses a message that is not a JSON-RPC request object", () => {
+    for (const message of [null, undefined, "text", 5, true, [], ["a"]]) {
+      const reply = respond(message);
+      assert.equal(reply?.error.code, -32600, `expected Invalid Request for ${JSON.stringify(message)}`);
+      assert.equal(reply?.error.message, "invalid request");
+      assert.equal(reply?.id, null);
+    }
+  });
+
+  it("refuses a request with a wrong envelope, method or id", () => {
+    const invalid = [
+      { jsonrpc: "1.0", id: 1, method: "ping" },
+      { id: 2, method: "ping" },
+      { jsonrpc: "2.0", id: 3 },
+      { jsonrpc: "2.0", id: 4, method: 7 },
+      { jsonrpc: "2.0", id: null, method: "ping" },
+      { jsonrpc: "2.0", id: {}, method: "ping" },
+    ];
+    for (const message of invalid) {
+      const reply = respond(message);
+      assert.equal(reply?.error.code, -32600, `expected Invalid Request for ${JSON.stringify(message)}`);
+      assert.equal(reply?.id, null);
+    }
+  });
+
+  it("keeps the server alive across invalid frames", async () => {
+    const child = spawn(process.execPath, [SERVER_ENTRY], { stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+
+    const frames = [
+      "null",
+      "[]",
+      "5",
+      JSON.stringify({ jsonrpc: "1.0", id: 1, method: "ping" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping" }),
+    ];
+    for (const frame of frames) child.stdin.write(`${frame}\n`);
+    child.stdin.end();
+
+    const [code] = await once(child, "close");
+    const replies = stdout.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+
+    assert.equal(code, 0, `server exited ${code}: ${stderr}`);
+    assert.equal(replies.length, frames.length);
+    for (const reply of replies.slice(0, -1)) {
+      assert.equal(reply.error.code, -32600);
+      assert.equal(reply.id, null);
+    }
+    assert.deepEqual(replies.at(-1), { jsonrpc: "2.0", id: 2, result: {} });
   });
 });
