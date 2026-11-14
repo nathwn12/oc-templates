@@ -24,6 +24,8 @@ npm run check
 
 `npm run check` builds with `tsc` and runs the suite, so a fresh clone needs no other step. Both halves are plain ESM in `dist/`; nothing else is required at runtime.
 
+A git-URL dependency installs the source without `dist/`. When something needs the package itself rather than a copied tree, build the clone first or install the packed tarball (`npm pack`).
+
 ### Wire it yourself
 
 The MCP server runs from the built entry. Point `opencode.json(c)` at it:
