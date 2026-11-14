@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Nothing yet.
+
+## [0.2.0] - 2026-11-14
+
 ### Changed
 
 - MCP protocol negotiation follows the specification. An `initialize` request for a version the server does not implement is answered with `2025-11-25` instead of having the request echoed back, and the server now serves the current revision `2026-07-28` per request: version read from `_meta`, `server/discover` implemented, unsupported versions refused with `-32022` carrying `supported` and `requested`.

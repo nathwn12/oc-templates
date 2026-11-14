@@ -7,7 +7,7 @@
  */
 export const NAME = "oc-template"
 
-export const VERSION = "0.1.0"
+export const VERSION = "0.2.0"
 
 /** Slash command this plugin registers. */
 export const COMMAND_NAME = "template-status"
