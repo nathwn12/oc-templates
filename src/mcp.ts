@@ -20,8 +20,9 @@
  * `respond` and `serve` are exported so the protocol can be driven in a test
  * without a pipe.
  */
+import { realpathSync } from "node:fs"
 import { createInterface } from "node:readline"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath } from "node:url"
 import type { Readable, Writable } from "node:stream"
 
 import { NAME, VERSION } from "./identity.js"
@@ -173,12 +174,11 @@ function dispatch(message: RpcMessage, params: Record<string, unknown>, modern: 
  */
 export function respond(message: unknown): RpcSuccess | RpcFailure | null {
   if (!isMessage(message)) return invalidRequest()
+  if (message["jsonrpc"] !== "2.0" || typeof message["method"] !== "string") {
+    return invalidRequest()
+  }
   if (message["id"] === undefined) return null
-  if (
-    message["jsonrpc"] !== "2.0" ||
-    typeof message["method"] !== "string" ||
-    (typeof message["id"] !== "string" && typeof message["id"] !== "number")
-  ) {
+  if (typeof message["id"] !== "string" && typeof message["id"] !== "number") {
     return invalidRequest()
   }
 
@@ -253,9 +253,24 @@ export function serve(input: Readable, output: Writable): void {
   })
 }
 
-const invokedDirectly =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href
+/**
+ * True when this module is the entry the process was started with.
+ *
+ * The paths are compared after resolving links: `npm` installs a `bin` as a
+ * symlink on Unix, so `argv[1]` names the same file as the module URL by a
+ * different path, and a bare URL comparison leaves the documented
+ * `"command": ["<name>-mcp"]` starting nothing at all.
+ */
+function isEntryPoint(): boolean {
+  const entry = process.argv[1]
+  if (entry === undefined) return false
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    return false
+  }
+}
 
-if (invokedDirectly) {
+if (isEntryPoint()) {
   serve(process.stdin, process.stdout)
 }

@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   LEGACY_PROTOCOL_VERSION,
@@ -218,6 +221,29 @@ describe("invalid requests", () => {
     }
   });
 
+  it("refuses an id-less object that is not a valid notification", () => {
+    const invalid = [
+      {},
+      { method: "ping" },
+      { jsonrpc: "1.0", method: "ping" },
+      { jsonrpc: "2.0" },
+      { jsonrpc: "2.0", method: 7 },
+    ];
+    for (const message of invalid) {
+      const reply = respond(message);
+      assert.equal(reply?.error.code, -32600, `expected Invalid Request for ${JSON.stringify(message)}`);
+      assert.equal(reply?.id, null);
+    }
+  });
+
+  it("leaves a valid notification unanswered", () => {
+    assert.equal(respond({ jsonrpc: "2.0", method: "notifications/initialized" }), null);
+    assert.equal(
+      respond({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } }),
+      null,
+    );
+  });
+
   it("keeps the server alive across invalid frames", async () => {
     const child = spawn(process.execPath, [SERVER_ENTRY], { stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
@@ -225,12 +251,19 @@ describe("invalid requests", () => {
     child.stdout.on("data", (chunk) => (stdout += chunk));
     child.stderr.on("data", (chunk) => (stderr += chunk));
 
-    const frames = [
+    const invalidFrames = [
       "null",
       "[]",
       "5",
-      JSON.stringify({ jsonrpc: "1.0", id: 1, method: "ping" }),
-      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping" }),
+      "{}",
+      JSON.stringify({ jsonrpc: "1.0", method: "ping" }),
+    ];
+    const ping = (id) => JSON.stringify({ jsonrpc: "2.0", id, method: "ping" });
+    const frames = [
+      ...invalidFrames,
+      ping(1),
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+      ping(2),
     ];
     for (const frame of frames) child.stdin.write(`${frame}\n`);
     child.stdin.end();
@@ -239,11 +272,70 @@ describe("invalid requests", () => {
     const replies = stdout.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
 
     assert.equal(code, 0, `server exited ${code}: ${stderr}`);
-    assert.equal(replies.length, frames.length);
-    for (const reply of replies.slice(0, -1)) {
+    assert.equal(replies.length, frames.length - 1, "the notification must stay unanswered");
+    for (const reply of replies.slice(0, invalidFrames.length)) {
       assert.equal(reply.error.code, -32600);
       assert.equal(reply.id, null);
     }
+    assert.deepEqual(replies[0], { jsonrpc: "2.0", id: null, error: { code: -32600, message: "invalid request" } });
+    assert.deepEqual(replies[invalidFrames.length], { jsonrpc: "2.0", id: 1, result: {} });
     assert.deepEqual(replies.at(-1), { jsonrpc: "2.0", id: 2, result: {} });
+  });
+});
+
+describe("entry point", () => {
+  /**
+   * npm installs a `bin` as a link on Unix and resolves the package through it,
+   * so argv[1] and the module URL name the same file by different paths. A host
+   * that forbids file links gets a directory link, which exercises the same
+   * resolution one level up.
+   */
+  function linkEntry(directory) {
+    const link = join(directory, "oc-template-mcp");
+    try {
+      symlinkSync(SERVER_ENTRY, link, process.platform === "win32" ? "file" : undefined);
+      return link;
+    } catch (error) {
+      if (process.platform !== "win32") throw error;
+      symlinkSync(dirname(SERVER_ENTRY), join(directory, "dist"), "junction");
+      return join(directory, "dist", "mcp.js");
+    }
+  }
+
+  it("serves when started through a link to the entry", async (t) => {
+    const directory = mkdtempSync(join(tmpdir(), "oc-template-entry-"));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+
+    let entry;
+    try {
+      entry = linkEntry(directory);
+    } catch (error) {
+      t.skip(`host cannot create links: ${error.code}`);
+      return;
+    }
+    assert.notEqual(entry, SERVER_ENTRY);
+
+    const child = spawn(process.execPath, [entry], { stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+
+    child.stdin.end(
+      `${JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: LEGACY_PROTOCOL_VERSION },
+      })}\n`,
+    );
+
+    const [code] = await once(child, "close");
+    assert.equal(code, 0, `server exited ${code}: ${stderr}`);
+    assert.notEqual(stdout.trim(), "", "the entry started through a link answered nothing");
+
+    const reply = JSON.parse(stdout.trim().split("\n")[0]);
+    assert.equal(reply.result.protocolVersion, LEGACY_PROTOCOL_VERSION);
+    assert.equal(reply.result.serverInfo.name, SERVER_NAME);
   });
 });

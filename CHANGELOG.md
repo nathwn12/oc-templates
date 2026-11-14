@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A frame that is not a well-formed JSON-RPC 2.0 request — `null`, a primitive, an array, a wrong `jsonrpc` value, a missing or non-string `method`, a `null` id — is answered with `-32600` Invalid Request and `id: null`. The server previously threw on the first such frame and exited, taking every later request with it.
+- A frame that is not a well-formed JSON-RPC 2.0 request — `null`, a primitive, an array, a wrong `jsonrpc` value, a missing or non-string `method`, a `null` id, or an object with no `id` at all — is answered with `-32600` Invalid Request and `id: null`. The server previously threw on the first such frame and exited, taking every later request with it; an id-less object was then discarded as a notification before any validation.
+- The stdio entry starts when invoked through a link, which is what an `npm` `bin` is on Unix. The entry check compared `argv[1]` to the module URL as strings, so the symlinked command started nothing and exited 0. Paths are now compared after resolving links.
 - `npm pack` builds first (`prepack`), so the tarball carries `dist/`. Packing a clean clone used to produce a package whose `main`, `bin` and `exports` pointed at files that were not in it.
 - The suite derives the example command name from `identity.ts` instead of pinning it, so renaming `COMMAND_NAME` no longer fails two tests.
 
