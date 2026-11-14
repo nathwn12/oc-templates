@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import plugin, { PLUGIN_ID, PLUGIN_VERSION } from "../dist/plugin.js";
+import { COMMAND_NAME } from "../dist/identity.js";
 
 /** The smallest context that satisfies what the template plugin touches. */
 function fakeContext() {
@@ -51,7 +52,7 @@ describe("plugin entry", () => {
     const cleanup = await plugin.setup(context);
 
     assert.equal(commands.length, 1);
-    assert.equal(commands[0].name, "template-status");
+    assert.equal(commands[0].name, COMMAND_NAME);
     assert.equal(typeof commands[0].execute, "function");
 
     assert.equal(hooks.length, 1);
