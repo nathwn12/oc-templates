@@ -25,7 +25,10 @@ describe("identity", () => {
 
   it("derives namespaced identifiers from the package name", () => {
     assert.equal(STORAGE_PREFIX, `${NAME}:`);
-    assert.equal(COMMAND_NAME, "template-status");
+  });
+
+  it("accepts any command name a copy chooses", () => {
+    assert.match(COMMAND_NAME, /^[a-z][a-z0-9-]{1,40}$/, "COMMAND_NAME is a slash-command slug");
     assert.ok(
       pkg.files.includes("src"),
       "source maps in dist/ point at src; the package must ship it",
@@ -34,5 +37,9 @@ describe("identity", () => {
       Object.keys(pkg.bin ?? {}).includes(`${NAME}-mcp`),
       "the MCP entry needs a bin name derived from the package name",
     );
+  });
+
+  it("builds before it packs, so the tarball carries dist", () => {
+    assert.match(pkg.scripts.prepack ?? "", /build/, "npm pack must produce a usable package");
   });
 });

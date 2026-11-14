@@ -54,6 +54,7 @@
     "test": "node --test test/*.test.mjs",
     "mcp": "node dist/mcp.js",
     "check": "npm test",
+    "prepack": "npm run build",
     "prepublishOnly": "npm run check"
   },
   "dependencies": {
