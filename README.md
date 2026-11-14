@@ -78,7 +78,7 @@ It prints one JSON-RPC reply per line and stays silent on notifications. Its one
 | File | What it is |
 |---|---|
 | `src/identity.ts` | Name, version, command name and storage prefix — the only identity file |
-| `src/plugin.ts` | Plugin entry: `template-status` command plus an `execute.before` tool hook |
+| `src/plugin.ts` | Plugin entry: the `COMMAND_NAME` command (shipped as `template-status`) plus an `execute.before` tool hook |
 | `src/mcp.ts` | stdio MCP server: `initialize`, `server/discover`, `ping`, `tools/list`, `tools/call` |
 | `test/` | The suite: protocol negotiation, transport framing, plugin registration, identity drift |
 
