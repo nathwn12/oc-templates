@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- Nothing yet.
+- The suite lives in `tests/` instead of `test/`, matching the repository layout; `npm test`, the identity doc comment and the README point there.
+- `README.md` follows the house README model: the seven fixed sections in order, "What you get" folded into `## Use it`, `## Development` with the build and test commands and the repo tree, the Status label verbatim, and Links ordered Issues, docs, licence.
 
 ## [0.2.0] - 2026-11-14
 

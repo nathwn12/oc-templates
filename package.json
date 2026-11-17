@@ -51,7 +51,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "pretest": "npm run build",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "mcp": "node dist/mcp.js",
     "check": "npm test",
     "prepack": "npm run build",
