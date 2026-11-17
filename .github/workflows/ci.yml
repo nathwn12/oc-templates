@@ -21,6 +21,7 @@
 #
 # If the repo uses yarn, replace the install step and say so in the commit
 # message. If the repo has a real lint step, add it above Build.
+# Docs-only change (*.md, docs/, LICEN[CS]E) keeps the required check green in seconds and runs no build.
 name: ci
 on:
   push:
@@ -31,13 +32,36 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect a docs-only change
+        id: scope
+        shell: bash
+        run: |
+          docs='^(.*\.md|docs/.*|LICEN[CS]E(\.md)?)$'
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          elif [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ]; then
+            changed=$(git diff --name-only "${{ github.event.before }}" HEAD || true)
+          else
+            changed=$(git ls-files)
+          fi
+          if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -qvE "$docs"; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: oven-sh/setup-bun@v2
+        if: steps.scope.outputs.code == 'true'
         with:
           bun-version: latest
       - uses: actions/setup-node@v4
+        if: steps.scope.outputs.code == 'true'
         with:
           node-version: lts/*
       - name: Install dependencies
+        if: steps.scope.outputs.code == 'true'
         shell: bash
         run: |
           if [ -f bun.lock ] || [ -f bun.lockb ]; then
@@ -50,6 +74,12 @@ jobs:
             npm install
           fi
       - name: Build
+        if: steps.scope.outputs.code == 'true'
         run: npm run build --if-present
       - name: Test
+        if: steps.scope.outputs.code == 'true'
         run: npm test --if-present
+      - name: Scope
+        if: always()
+        run: |
+          echo "scope: ${{ steps.scope.outputs.code == 'true' && 'code changed - the full gate ran' || 'docs-only - build skipped, the check stays green' }}"
