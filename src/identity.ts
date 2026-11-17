@@ -2,7 +2,7 @@
  * Single source of truth for this package's identity.
  *
  * Make a copy of this template your own by editing this file and the `name`,
- * `version` and `description` fields in `package.json`; `test/identity.test.mjs`
+ * `version` and `description` fields in `package.json`; `tests/identity.test.mjs`
  * fails if the two disagree.
  */
 export const NAME = "oc-template"
