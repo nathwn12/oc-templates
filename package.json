@@ -58,7 +58,7 @@
     "prepublishOnly": "npm run check"
   },
   "dependencies": {
-    "@opencode/plugin": "^2.2.5"
+    "@opencode/plugin": "^2.3.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
