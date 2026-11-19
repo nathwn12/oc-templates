@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import plugin, { PLUGIN_ID, PLUGIN_VERSION } from "../dist/plugin.js";
 import { COMMAND_NAME } from "../dist/identity.js";
 
-/** The smallest context that satisfies what the template plugin touches. */
 function fakeContext() {
   const commands = [];
   const hooks = [];
