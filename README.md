@@ -102,7 +102,6 @@ oc-template/
 
 - [Issues](https://github.com/nathwn12/oc-templates/issues)
 - [Changelog](CHANGELOG.md)
+- [MIT](LICENSE)
 
 <p align="center"><sub>Built by nathwn12</sub></p>
-
-- [MIT](LICENSE)
