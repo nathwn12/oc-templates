@@ -29,7 +29,6 @@ const MODERN = {
   },
 };
 
-/** A modern-era request: every request carries the protocol version in `_meta`. */
 function modern(id, method, params = {}) {
   return { jsonrpc: "2.0", id, method, params: { ...MODERN, ...params } };
 }

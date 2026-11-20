@@ -1,25 +1,4 @@
 #!/usr/bin/env node
-/**
- * Minimal MCP server over stdio: newline-delimited JSON-RPC 2.0, no dependencies.
- *
- * It speaks both protocol eras the specification defines:
- *
- * - **legacy** (`2025-11-25` and earlier): a client opens with the `initialize`
- *   handshake. The reply must carry a version the server implements, so a
- *   requested version this server does not serve is answered with the one it does.
- * - **modern** (`2026-07-28`): every request declares its version in
- *   `_meta["io.modelcontextprotocol/protocolVersion"]`. An unsupported version is
- *   refused with `-32022` (`UnsupportedProtocolVersionError`) carrying the
- *   supported list, and `server/discover` reports versions and capabilities up
- *   front.
- *
- * Wire it into opencode under the V2 `mcp.servers` map; `type` is required and
- * `command` is an array, never a string:
- *   { "mcp": { "servers": { "<name>": { "type": "local", "command": ["<name>-mcp"] } } } }
- *
- * `respond` and `serve` are exported so the protocol can be driven in a test
- * without a pipe.
- */
 import { realpathSync } from "node:fs"
 import { createInterface } from "node:readline"
 import { fileURLToPath } from "node:url"
@@ -30,29 +9,22 @@ import { NAME, VERSION } from "./identity.js"
 export const SERVER_NAME = NAME
 export const SERVER_VERSION = VERSION
 
-/** Current revision: per-request `_meta`, `server/discover`, no handshake. */
 export const MODERN_PROTOCOL_VERSION = "2026-07-28"
 
-/** Last handshake revision, and the one this server implements. */
 export const LEGACY_PROTOCOL_VERSION = "2025-11-25"
 
-/** Every revision this server answers, newest first. */
 export const SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [
   MODERN_PROTOCOL_VERSION,
   LEGACY_PROTOCOL_VERSION,
 ]
 
-/** Handshake revisions served by `initialize`. A client that asks for another one
- * is answered with the newest entry instead of having its request echoed back. */
 const HANDSHAKE_PROTOCOL_VERSIONS: readonly string[] = [LEGACY_PROTOCOL_VERSION]
 
 export const PROTOCOL_VERSION_KEY = "io.modelcontextprotocol/protocolVersion"
 export const SERVER_INFO_KEY = "io.modelcontextprotocol/serverInfo"
 
-/** `UnsupportedProtocolVersionError`, reserved for the specification. */
 export const UNSUPPORTED_PROTOCOL_VERSION = -32022
 
-/** `Invalid Request`: the message is not a well-formed JSON-RPC 2.0 request. */
 export const INVALID_REQUEST = -32600
 
 const CAPABILITIES = { tools: { listChanged: false } } as const
@@ -78,7 +50,6 @@ export interface RpcFailure {
   error: { code: number; message: string; data?: unknown }
 }
 
-/** Capability catalogue served by `tools/list`. */
 export const TOOLS = [
   {
     name: "echo",
@@ -102,7 +73,6 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
 }
 
-/** A JSON-RPC message is an object; arrays and primitives are invalid requests. */
 function isMessage(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -119,7 +89,6 @@ function text(value: string, isError = false) {
   return { content: [{ type: "text", text: value }], isError }
 }
 
-/** The per-request version a modern client declares, or `undefined` for a legacy one. */
 function requestedVersion(params: Record<string, unknown>): string | undefined {
   const version = asRecord(params["_meta"])[PROTOCOL_VERSION_KEY]
   return typeof version === "string" ? version : undefined
