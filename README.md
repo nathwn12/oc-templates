@@ -5,9 +5,8 @@
 <p align="center"><strong>A working OpenCode v2 plugin and a dependency-free MCP server in one small repo you copy and rename.</strong></p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/nathwn12/oc-templates" alt="License" /></a>
-  <img src="https://img.shields.io/github/languages/top/nathwn12/oc-templates" alt="Language" />
-  <img src="https://img.shields.io/badge/platform-windows--linux-2b3137" alt="Platform" />
+  <img src="https://img.shields.io/badge/platform-windows%20linux-blue" alt="platform">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
 ## Why
