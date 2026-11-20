@@ -38,7 +38,7 @@ The MCP server runs from the built entry, and the plugin is loaded by package na
 
 `type` is required and `command` is an array of arguments, never a string. `dist/mcp.js` is also published as a `bin`, so an installed copy can use `"command": ["oc-template-mcp"]`.
 
-## Use
+## Use it
 
 Drive the MCP server by hand to see the wire:
 
@@ -56,7 +56,7 @@ It prints one JSON-RPC reply per line and stays silent on notifications. Its one
 | `src/mcp.ts` | stdio MCP server: `initialize`, `server/discover`, `ping`, `tools/list`, `tools/call` |
 | `tests/` | Protocol negotiation, transport framing, plugin registration and identity drift |
 
-## Configure
+## Configure it
 
 **Protocol era.** The server is dual-era and needs no configuration for either. `2025-11-25` is the last handshake revision and the one `initialize` answers; `2026-07-28` declares its version per request in `_meta` and is served statelessly. OpenCode's optional `protocol` key selects the era, defaulting to `legacy`:
 
@@ -78,10 +78,31 @@ A version the server does not implement is never echoed: the handshake reply car
 - OpenCode 2.x for `plugins` and `mcp.servers`.
 - `@opencode/plugin` is the only runtime dependency; the MCP server has none.
 
+## Development
+
+```sh
+npm run build   # tsc -p tsconfig.json, src/ to dist/
+npm run check   # build, then node --test tests/*.test.mjs
+```
+
+```
+oc-template/
+├── src/       plugin.ts, mcp.ts, identity.ts
+├── tests/     protocol, plugin and identity suites
+├── assets/    icon.svg
+├── .github/   ci.yml
+└── package.json
+```
+
+## Status
+
+**Experimental** - pre-release; interfaces may change.
+
 ## Links
 
 - [Issues](https://github.com/nathwn12/oc-templates/issues)
 - [Changelog](CHANGELOG.md)
-- [MIT](LICENSE)
 
-<p align="center">Built by nathwn12</p>
+<p align="center"><sub>Built by nathwn12</sub></p>
+
+- [MIT](LICENSE)
