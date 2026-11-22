@@ -1,0 +1,13 @@
+---
+project: oc-templates
+one_line: Scaffold an OpenCode v2 plugin with a dependency-free stdio MCP server.
+stack: [JavaScript]
+status: draft
+since: 2026-10
+capabilities: []
+limits: []
+updated: 2026-11-22
+draft: true
+---
+
+This is a scaffold, not a library. The plugin registers a slash command and an execute.before hook. The MCP server speaks both protocol eras the specification defines, and the tests drive both. Set the identity, then write the tool you wanted.
