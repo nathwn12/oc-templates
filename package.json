@@ -1,12 +1,14 @@
 {
   "name": "oc-template",
   "version": "0.2.0",
-  "description": "Scaffold for an OpenCode v2 plugin plus a dependency-free stdio MCP server.",
+  "description": "Ship your own OpenCode tool by copying a working plugin and dependency-free MCP server.",
   "keywords": [
     "opencode",
     "opencode-plugin",
     "mcp",
-    "template"
+    "template",
+    "plugin",
+    "server"
   ],
   "license": "MIT",
   "author": "nathwn12",
