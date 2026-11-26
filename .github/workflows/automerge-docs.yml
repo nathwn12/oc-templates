@@ -4,7 +4,8 @@
 # path (*.md, docs/**, LICENSE/LICENCE, .gitignore, *.example), the actor is a
 # trusted same-repo owner/member/collaborator (verified from fetched PR metadata,
 # never from the ambient actor), and every required check is green. Anything that
-# touches code - including this workflow - is never auto-merged.
+# touches code - including this workflow - leaves the check neutral (success)
+# and the PR for a human; nothing is merged.
 #
 # pull_request_target runs in the base-repo context with a write token; the PR's
 # code is never checked out or executed, so untrusted fork content stays inert.
