@@ -20,11 +20,11 @@ Clone it under the name your project will carry, then build and test:
 ```sh
 git clone https://github.com/nathwn12/oc-templates my-plugin
 cd my-plugin
-npm install
+npm ci
 npm run check
 ```
 
-`npm run check` builds with `tsc` and runs the suite, so a fresh clone needs no other step. A git-URL dependency installs the source without `dist/`; to use the package itself, build the clone or install the packed tarball (`npm pack`).
+The install command is the lockfile branch of `.github/workflows/ci.yml`: this repo ships `package-lock.json`, so the gate uses `npm ci`. `npm run check` builds with `tsc` and runs the suite, so a fresh clone needs no other step. A git-URL dependency installs the source without `dist/`; to use the package itself, build the clone or install the packed tarball (`npm pack`).
 
 The MCP server runs from the built entry, and the plugin is loaded by package name:
 
