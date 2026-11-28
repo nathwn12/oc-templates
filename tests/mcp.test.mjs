@@ -7,6 +7,8 @@ import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   LEGACY_PROTOCOL_VERSION,
   MODERN_PROTOCOL_VERSION,
@@ -17,6 +19,7 @@ import {
   TOOLS,
   respond,
   serve,
+  SKILLS_ROOT,
 } from "../dist/mcp.js";
 
 const SERVER_ENTRY = fileURLToPath(new URL("../dist/mcp.js", import.meta.url));
@@ -336,5 +339,116 @@ describe("entry point", () => {
     const reply = JSON.parse(stdout.trim().split("\n")[0]);
     assert.equal(reply.result.protocolVersion, LEGACY_PROTOCOL_VERSION);
     assert.equal(reply.result.serverInfo.name, SERVER_NAME);
+  });
+});
+
+describe("capabilities", () => {
+  it("declares the resources capability and the skills extension", () => {
+    const reply = respond({ jsonrpc: "2.0", id: 100, method: "initialize", params: {} });
+    assert.equal(typeof reply.result.capabilities.resources, "object");
+    assert.deepEqual(reply.result.capabilities.extensions, {
+      "io.modelcontextprotocol/skills": {},
+    });
+  });
+});
+
+describe("skills", () => {
+  function uriToPath(uri) {
+    const withoutScheme = uri.replace(/^skill:\/\//, "");
+    const parts = withoutScheme.split("/");
+    return join(SKILLS_ROOT, ...parts);
+  }
+
+  it("lists at least one skill with valid entries", () => {
+    const reply = respond({ jsonrpc: "2.0", id: 101, method: "skills/list", params: {} });
+    assert.equal(reply.result.ttlMs, 0);
+    assert.equal(reply.result.cacheScope, "private");
+    assert.ok(Array.isArray(reply.result.skills));
+    assert.ok(reply.result.skills.length >= 1);
+    for (const skill of reply.result.skills) {
+      assert.equal(typeof skill.uri, "string");
+      assert.ok(skill.uri.endsWith("/SKILL.md"));
+      assert.equal(typeof skill.frontmatter, "object");
+      assert.equal(typeof skill.frontmatter.name, "string");
+      assert.equal(typeof skill.frontmatter.description, "string");
+      assert.ok(skill.frontmatter.description.length >= 1);
+      assert.ok(skill.frontmatter.description.length <= 1024);
+      assert.ok(Array.isArray(skill.resources));
+      assert.ok(skill.resources.length >= 1);
+      const uris = skill.resources.map((resource) => resource.uri);
+      assert.deepEqual(uris, [...uris].sort());
+      assert.ok(uris.includes(skill.uri));
+      for (const resource of skill.resources) {
+        assert.match(resource.digest, /^sha256:[0-9a-f]{64}$/);
+        assert.equal(typeof resource.size, "number");
+        assert.ok(resource.size >= 0);
+      }
+    }
+  });
+
+  it("matches a listed skill digest and size to its bytes", () => {
+    const reply = respond({ jsonrpc: "2.0", id: 102, method: "skills/list", params: {} });
+    const skill = reply.result.skills[0];
+    const entry = skill.resources.find((resource) => resource.uri === skill.uri);
+    const bytes = readFileSync(uriToPath(skill.uri));
+    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    assert.equal(entry.digest, digest);
+    assert.equal(entry.size, bytes.length);
+  });
+
+  it("reads a listed skill back through resources/read", () => {
+    const reply = respond({ jsonrpc: "2.0", id: 103, method: "skills/list", params: {} });
+    const skill = reply.result.skills[0];
+    const bytes = readFileSync(uriToPath(skill.uri));
+    const readReply = respond({
+      jsonrpc: "2.0",
+      id: 104,
+      method: "resources/read",
+      params: { uri: skill.uri },
+    });
+    assert.equal(readReply.result.contents[0].uri, skill.uri);
+    assert.equal(readReply.result.contents[0].mimeType, "text/markdown");
+    assert.equal(readReply.result.contents[0].text, bytes.toString("utf8"));
+  });
+
+  it("reads every listed resource", () => {
+    const reply = respond({ jsonrpc: "2.0", id: 105, method: "skills/list", params: {} });
+    const skill = reply.result.skills[0];
+    for (const resource of skill.resources) {
+      const readReply = respond({
+        jsonrpc: "2.0",
+        id: 106,
+        method: "resources/read",
+        params: { uri: resource.uri },
+      });
+      assert.equal(readReply.result.contents[0].uri, resource.uri);
+      assert.ok(readReply.result.contents.length === 1);
+    }
+  });
+
+  it("returns -32602 for an unknown skill uri", () => {
+    const reply = respond({
+      jsonrpc: "2.0",
+      id: 107,
+      method: "skills/get",
+      params: { uri: "skill://does-not-exist/SKILL.md" },
+    });
+    assert.equal(reply.error.code, -32602);
+  });
+
+  it("serves skills on the modern path", () => {
+    const reply = respond({
+      jsonrpc: "2.0",
+      id: 108,
+      method: "skills/list",
+      params: {
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": MODERN_PROTOCOL_VERSION,
+          "io.modelcontextprotocol/clientInfo": { name: "test-client", version: "0.0.0" },
+        },
+      },
+    });
+    assert.equal(reply.result.resultType, "complete");
+    assert.ok(Array.isArray(reply.result.skills));
   });
 });

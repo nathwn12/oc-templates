@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Server-side MCP Skills (SEP-2640): `skills/list`, `skills/get`, `resources/read` for `skill://` URIs, capability declaration, and a seed skill under `skills/example/`.
+
 ### Changed
 
 - The suite lives in `tests/` instead of `test/`, matching the repository layout; `npm test`, the identity doc comment and the README point there.
