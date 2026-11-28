@@ -55,6 +55,7 @@ It prints one JSON-RPC reply per line and stays silent on notifications. Its one
 | `src/plugin.ts` | Plugin entry: the command plus an `execute.before` tool hook |
 | `src/mcp.ts` | stdio MCP server: `initialize`, `server/discover`, `ping`, `tools/list`, `tools/call` |
 | `tests/` | Protocol negotiation, transport framing, plugin registration and identity drift |
+| `skills/` | Seed skills served over MCP; each folder's name must equal its `SKILL.md` frontmatter `name` |
 
 ## Configure it
 
@@ -68,7 +69,7 @@ It prints one JSON-RPC reply per line and stays silent on notifications. Its one
 
 A version the server does not implement is never echoed: the handshake reply carries `2025-11-25`, and a per-request version is refused with `-32022` plus `data.supported` and `data.requested` for the client to retry against.
 
-**Renaming.** Edit `src/identity.ts` and the `name`, `version` and `bin` fields in `package.json`. `tests/identity.test.mjs` fails when the two disagree, and checks that `package.json` still ships `src` and a `bin` named `<name>-mcp`. Storage keys are namespaced by `STORAGE_PREFIX`, so two copies of the scaffold in one OpenCode profile cannot overwrite each other.
+**Renaming.** Edit `src/identity.ts` and the `name`, `version` and `bin` fields in `package.json`. `tests/identity.test.mjs` fails when the two disagree, and checks that `package.json` still ships `src` and a `bin` named `<name>-mcp`. Storage keys are namespaced by `STORAGE_PREFIX`, so two copies of the scaffold in one OpenCode profile cannot overwrite each other. Skill folders under `skills/` are part of the rename: a folder name must equal the `name` in its `SKILL.md` frontmatter, and the suite fails on a mismatch.
 
 **Adding code.** Append to `TOOLS` and add its branch to `dispatch` in `src/mcp.ts`; the modern and legacy reply shapes are applied for you. Follow the two functions in `src/plugin.ts` for a command or hook — every hook is `context.tool.hook(name, callback)`, and each returns a registration whose `dispose` runs on unload.
 
@@ -89,6 +90,7 @@ npm run check   # build, then node --test tests/*.test.mjs
 oc-template/
 ├── src/       plugin.ts, mcp.ts, identity.ts
 ├── tests/     protocol, plugin and identity suites
+├── skills/    seed skills served over MCP
 ├── assets/    icon.svg
 ├── .github/   ci.yml
 └── package.json
